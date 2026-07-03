@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIO Network • Mini App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Inter', system_ui, sans-serif; }
+        .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
+        .miniapp-container { max-width: 480px; margin: 0 auto; min-height: 100vh; background: #0a0a0f; }
+        .nav-tab { flex: 1; text-align: center; padding: 12px 8px; font-size: 13px; }
+        .tab-btn.active { background: #ff2a2a; color: white; }
+        .section { display: none; }
+        .section.active { display: block; }
+    </style>
+</head>
+<body class="bg-[#0a0a0f] text-white">
+    <div class="miniapp-container mx-auto border-x border-white/10">
+        
+        <!-- Header -->
+        <div class="bg-[#111114] px-5 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-x-3">
+                <div class="w-10 h-10 flex items-center justify-center">
+                    <svg width="40" height="40" viewBox="0 0 100 100">
+                        <polygon points="50,8 92,85 8,85" fill="none" stroke="#ff2a2a" stroke-width="8"/>
+                        <polygon points="50,22 78,72 22,72" fill="none" stroke="#ff5555" stroke-width="5"/>
+                        <polygon points="50,36 64,60 36,60" fill="#ff2a2a"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="font-bold text-2xl tracking-tighter">TRIO</div>
+                    <div class="text-[10px] text-white/50 -mt-1">NETWORK</div>
+                </div>
+            </div>
+            <div id="user-info" class="flex items-center gap-x-2 bg-white/5 px-3 py-1.5 rounded-2xl text-sm">
+                <div class="w-7 h-7 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold">A</div>
+                <span id="username">@user</span>
+            </div>
+        </div>
+
+        <!-- Balance -->
+        <div class="bg-[#111114] px-5 py-3 flex justify-between items-center border-b border-white/10">
+            <div>
+                <div class="text-xs text-white/50">BALANCE</div>
+                <div id="balance" class="text-3xl font-bold">0.00</div>
+                <div class="text-xs text-red-400">TRIO</div>
+            </div>
+            <div class="text-right text-xs px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full">BEP20 Ready</div>
+        </div>
+
+        <!-- Content -->
+        <div class="p-5 pb-24">
+            
+            <!-- HOME -->
+            <div id="section-home" class="section active">
+                <div class="glass rounded-3xl p-5 mb-4">
+                    <div class="flex justify-between mb-3">
+                        <div>
+                            <div class="font-semibold">Mining Session</div>
+                            <div class="text-xs text-white/60">2 hours = 20 TRIO</div>
+                        </div>
+                        <div id="mining-status" class="px-3 py-1 text-xs rounded-2xl bg-emerald-500/10 text-emerald-400">READY</div>
+                    </div>
+                    
+                    <div id="mining-timer" class="hidden mb-4">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span>Hash Rate: <span id="hash-rate" class="font-mono text-red-400">245.8 MH/s</span></span>
+                            <span id="time-left" class="font-mono">01:59:42</span>
+                        </div>
+                        <div class="h-2 bg-white/10 rounded-full"><div id="progress" class="h-2 bg-red-500 rounded-full w-3/4"></div></div>
+                    </div>
+
+                    <button onclick="startMining()" class="w-full py-3 bg-red-600 rounded-2xl font-bold">WATCH AD & START MINING</button>
+                    <button onclick="claimMining()" id="claim-btn" class="w-full py-3 bg-emerald-600 rounded-2xl font-bold hidden mt-2">CLAIM 20 TRIO</button>
+                </div>
+
+                <div class="glass rounded-3xl p-4 mb-4">
+                    <div class="flex justify-between items-center">
+                        <div class="font-semibold text-sm">Mining Boost +10%</div>
+                        <button onclick="activateBoost()" class="px-4 py-1.5 text-xs bg-orange-500 rounded-2xl">BOOST</button>
+                    </div>
+                </div>
+
+                <div class="glass rounded-3xl p-4">
+                    <div class="font-semibold mb-2">Refer & Earn</div>
+                    <div class="text-xs">50 TRIO per referral</div>
+                    <button onclick="copyReferral()" class="mt-2 w-full py-2 bg-white/10 rounded-2xl text-sm">Copy Referral Link</button>
+                </div>
+            </div>
+
+            <!-- TASKS -->
+            <div id="section-tasks" class="section">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="font-bold text-xl">Tasks</div>
+                </div>
+                <div id="tasks-list" class="space-y-3"></div>
+            </div>
+
+            <!-- WALLET -->
+            <div id="section-wallet" class="section">
+                <div class="glass rounded-3xl p-5 mb-5">
+                    <div class="text-center mb-4">
+                        <div class="text-sm text-white/60">AVAILABLE</div>
+                        <div id="wallet-balance" class="text-5xl font-bold">0.00</div>
+                        <div class="text-red-400">TRIO</div>
+                    </div>
+
+                    <!-- Internal Send -->
+                    <div class="mb-6">
+                        <div class="font-semibold mb-2">Send Internal</div>
+                        <input id="send-user" type="text" placeholder="Telegram Username or ID" class="w-full bg-black/40 px-4 py-3 rounded-2xl mb-2 text-sm">
+                        <input id="send-amount" type="number" placeholder="Amount" class="w-full bg-black/40 px-4 py-3 rounded-2xl mb-2 text-sm">
+                        <button onclick="sendInternal()" class="w-full py-3 bg-red-600 rounded-2xl font-bold">SEND TRIO</button>
+                    </div>
+
+                    <!-- BEP20 Withdraw -->
+                    <div>
+                        <div class="font-semibold mb-2">Withdraw to BEP20 (Min 1000 TRIO)</div>
+                        <input id="withdraw-amount" type="number" placeholder="Amount" class="w-full bg-black/40 px-4 py-3 rounded-2xl mb-2 text-sm">
+                        <input id="withdraw-address" type="text" placeholder="BEP20 Address" class="w-full bg-black/40 px-4 py-3 rounded-2xl mb-2 text-sm">
+                        <button onclick="submitWithdraw()" class="w-full py-3 bg-red-600 rounded-2xl font-bold">SUBMIT WITHDRAWAL</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LEADERBOARD -->
+            <div id="section-leaderboard" class="section">
+                <div class="font-bold text-xl mb-4">Leaderboard</div>
+                <div id="leaderboard-list" class="glass rounded-3xl p-2"></div>
+            </div>
+
+            <!-- ADMIN -->
+            <div id="section-admin" class="section">
+                <div class="font-bold text-xl mb-4">Admin Panel</div>
+                
+                <!-- Add Task -->
+                <div class="glass rounded-3xl p-5 mb-6">
+                    <div class="font-semibold mb-3">Add New Task</div>
+                    <input id="task-title" placeholder="Task Title" class="w-full bg-black/40 px-4 py-3 rounded-2xl mb-2">
+                    <input id="task-link" placeholder="Link" class="w-full bg-black/40 px-4 py-3 rounded-2xl mb-2">
+                    <input id="task-reward" type="number" placeholder="Reward (TRIO)" class="w-full bg-black/40 px-4 py-3 rounded-2xl mb-2">
+                    <button onclick="addTask()" class="w-full py-3 bg-emerald-600 rounded-2xl font-bold">ADD TASK</button>
+                </div>
+
+                <div class="glass rounded-3xl p-5">
+                    <div class="font-semibold mb-3">Pending Withdrawals</div>
+                    <div id="pending-withdrawals"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Nav -->
+        <div class="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-[#111114] border-t border-white/10 flex">
+            <button onclick="switchTab('home')" class="nav-tab tab-btn active flex flex-col items-center py-3 text-xs" id="tab-home">
+                <i class="fas fa-home text-lg"></i><span>Home</span>
+            </button>
+            <button onclick="switchTab('tasks')" class="nav-tab tab-btn flex flex-col items-center py-3 text-xs" id="tab-tasks">
+                <i class="fas fa-tasks text-lg"></i><span>Tasks</span>
+            </button>
+            <button onclick="switchTab('wallet')" class="nav-tab tab-btn flex flex-col items-center py-3 text-xs" id="tab-wallet">
+                <i class="fas fa-wallet text-lg"></i><span>Wallet</span>
+            </button>
+            <button onclick="switchTab('leaderboard')" class="nav-tab tab-btn flex flex-col items-center py-3 text-xs" id="tab-leaderboard">
+                <i class="fas fa-trophy text-lg"></i><span>Leaderboard</span>
+            </button>
+            <button onclick="switchTab('admin')" class="nav-tab tab-btn flex flex-col items-center py-3 text-xs" id="tab-admin">
+                <i class="fas fa-shield-alt text-lg"></i><span>Admin</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://uwroccqztofdqquahape.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3cm9jY3F6dG9mZH FxdWFoYXBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNzIxMjMsImV4cCI6MjA5ODY0ODEyM30.Dum6s7BjHS3Pi8ARxwf4EJvQvLeLsP9GOwYishqPvGY';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        let currentUser = null;
+        let balance = 0;
+
+        async function initApp() {
+            const tg = window.Telegram.WebApp;
+            tg.expand();
+
+            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                currentUser = tg.initDataUnsafe.user;
+                document.getElementById('username').innerText = '@' + currentUser.username;
+                
+                // Show admin only for you
+                if (currentUser.id !== 8057952804) {
+                    document.getElementById('tab-admin').style.display = 'none';
+                }
+            }
+
+            await loadUserData();
+            await loadTasks();
+            await loadLeaderboard();
+        }
+
+        async function loadUserData() {
+            if (!currentUser) return;
+            
+            const { data } = await supabase
+                .from('users')
+                .select('*')
+                .eq('telegram_id', currentUser.id)
+                .single();
+
+            if (data) {
+                balance = data.balance || 0;
+            } else {
+                // Create user
+                await supabase.from('users').insert({
+                    telegram_id: currentUser.id,
+                    username: currentUser.username,
+                    balance: 100
+                });
+                balance = 100;
+            }
+            
+            updateBalanceUI();
+        }
+
+        function updateBalanceUI() {
+            document.getElementById('balance').innerText = balance.toFixed(2);
+            const walletBal = document.getElementById('wallet-balance');
+            if (walletBal) walletBal.innerText = balance.toFixed(2);
+        }
+
+        async function startMining() {
+            // Simulate ad watch
+            alert("Ad watched! Mining started for 2 hours.");
+            // In real: start timer + save to supabase
+            document.getElementById('mining-timer').classList.remove('hidden');
+        }
+
+        function claimMining() {
+            balance += 20;
+            updateBalanceUI();
+            alert("+20 TRIO claimed!");
+        }
+
+        function activateBoost() {
+            alert("Boost activated! +10% reward");
+        }
+
+        function copyReferral() {
+            navigator.clipboard.writeText("https://t.me/TRIONetworkBot?start=ref_" + currentUser.id);
+            alert("Referral link copied!");
+        }
+
+        async function loadTasks() {
+            const { data: tasks } = await supabase.from('tasks').select('*');
+            const container = document.getElementById('tasks-list');
+            container.innerHTML = '';
+
+            if (!tasks || tasks.length === 0) {
+                container.innerHTML = '<div class="text-center text-white/50 py-8">No tasks available yet</div>';
+                return;
+            }
+
+            tasks.forEach(task => {
+                const div = document.createElement('div');
+                div.className = 'glass p-4 rounded-2xl';
+                div.innerHTML = `
+                    <div class="flex justify-between">
+                        <div>
+                            <div class="font-semibold">${task.title}</div>
+                            <div class="text-xs text-white/60">${task.description || ''}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-emerald-400 font-bold">+${task.reward} TRIO</div>
+                            <button onclick="claimTask(${task.id}, ${task.reward})" class="mt-2 px-4 py-1 text-xs bg-emerald-600 rounded-xl">Claim</button>
+                        </div>
+                    </div>
+                    ${task.link ? `<a href="${task.link}" target="_blank" class="text-xs text-red-400 mt-2 block">Open Link →</a>` : ''}
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function claimTask(taskId, reward) {
+            balance += reward;
+            updateBalanceUI();
+            alert(`+${reward} TRIO claimed!`);
+            // In real version: mark task as completed in DB
+        }
+
+        async function sendInternal() {
+            const user = document.getElementById('send-user').value;
+            const amount = parseFloat(document.getElementById('send-amount').value);
+            
+            if (!amount || amount > balance) return alert("Invalid amount");
+            
+            balance -= amount;
+            updateBalanceUI();
+            alert(`Sent ${amount} TRIO to ${user}`);
+        }
+
+        async function submitWithdraw() {
+            const amount = parseFloat(document.getElementById('withdraw-amount').value);
+            const address = document.getElementById('withdraw-address').value;
+            
+            if (amount < 1000) return alert("Minimum 1000 TRIO");
+            if (!address) return alert("Enter BEP20 address");
+
+            alert("Withdrawal request submitted! Awaiting admin approval.");
+            // Save to supabase pending_withdrawals table
+        }
+
+        async function loadLeaderboard() {
+            // Fake for now
+            const container = document.getElementById('leaderboard-list');
+            container.innerHTML = `
+                <div class="p-3">1. @CryptoKing - 12450 TRIO</div>
+                <div class="p-3">2. @SolanaWhale - 9870 TRIO</div>
+                <div class="p-3">3. You - ${balance} TRIO</div>
+            `;
+        }
+
+        async function addTask() {
+            const title = document.getElementById('task-title').value;
+            const link = document.getElementById('task-link').value;
+            const reward = parseFloat(document.getElementById('task-reward').value);
+
+            if (!title || !reward) return alert("Fill all fields");
+
+            await supabase.from('tasks').insert({
+                title,
+                link,
+                reward,
+                type: 'website'
+            });
+
+            alert("Task added successfully!");
+            loadTasks();
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById('section-' + tab).classList.add('active');
+            
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
